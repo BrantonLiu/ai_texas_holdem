@@ -131,7 +131,7 @@ def create_ai_players(selected_models):
             player = AIPokerPlayer(
                 name=player_name,
                 model_type=model_type,
-                debug=True
+                debug=False
             )
             players.append(player)
             print(f"    ✓ {player_name} 创建成功")

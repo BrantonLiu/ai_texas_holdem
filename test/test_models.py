@@ -4,6 +4,7 @@
 """
 import sys
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from ai_client import AI302Client
 from config import SUPPORTED_MODELS, API_KEY
 
@@ -70,7 +71,7 @@ def main():
     
     # 逐个测试每个模型
     for model_type in SUPPORTED_MODELS.keys():
-        if "qwen" not in model_type :
+        if "gpt" not in model_type :
             continue
         try:
             if test_model(model_type):

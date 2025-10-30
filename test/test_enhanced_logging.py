@@ -2,6 +2,8 @@
 增强日志功能测试脚本
 """
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import sys
 from dotenv import load_dotenv
 

@@ -138,6 +138,8 @@ class GameStateAnalyzer:
                 elif action_type == 'call':
                     return f"跟注 {amount}"
                 elif action_type == 'raise':
+                    # 注意：这里无法直接判断是否all-in，因为需要知道玩家剩余筹码
+                    # 但在实际游戏中，PyPokerEngine会在玩家all-in时自动标记
                     return f"加注至 {amount}"
                 elif action_type == 'bet':
                     return f"下注 {amount}"
@@ -221,4 +223,5 @@ class GameStateAnalyzer:
         
         else:
             return "弱牌"
+
 

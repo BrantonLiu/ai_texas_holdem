@@ -24,10 +24,11 @@ class AIPokerPlayer(BasePokerPlayer):
         """
         self.name = name
         self.model_type = model_type
-        self.debug = debug #false
+        self.debug = debug #false or debug
         self.ai_client = AI302Client(model_type)
         self.game_history = []  # 存储游戏历史
         self.player_uuid = None
+        self._is_all_in = False  # 标记是否all-in
         
         if self.debug:
             print(f"[{self.name}] 初始化完成，使用模型: {model_type}")
@@ -58,10 +59,12 @@ class AIPokerPlayer(BasePokerPlayer):
             decision = self.ai_client.get_poker_decision(game_info, debug=self.debug)
             
             if decision:
-                action, amount = self._process_ai_decision(decision, valid_actions)
+                action, amount = self._process_ai_decision(decision, valid_actions, round_state)
                 
                 if self.debug:
-                    self._print_final_decision(action, amount, decision)
+                    # 获取当前筹码以便判断all-in
+                    my_stack = game_info.get('my_stack', 0)
+                    self._print_final_decision(action, amount, decision, my_stack)
                 
                 # 记录决策历史
                 self._record_decision(game_info, decision, action, amount)
@@ -88,13 +91,15 @@ class AIPokerPlayer(BasePokerPlayer):
             # 异常情况下使用备用策略
             return self._fallback_strategy(valid_actions, hole_card, round_state)
     
-    def _process_ai_decision(self, decision: Dict, valid_actions: List[Dict]) -> tuple:
+    def _process_ai_decision(self, decision: Dict, valid_actions: List[Dict], 
+                           round_state: Dict = None) -> tuple:
         """
         处理AI决策，确保决策有效
         
         Args:
             decision: AI决策
             valid_actions: 可选行动
+            round_state: 轮次状态（用于检测all-in）
             
         Returns:
             (action, amount) 元组
@@ -115,6 +120,13 @@ class AIPokerPlayer(BasePokerPlayer):
                 action = valid_action_types[0]
         
         # 根据行动类型调整金额
+        my_stack = 0
+        if round_state:
+            for seat in round_state.get('seats', []):
+                if seat['uuid'] == self.player_uuid:
+                    my_stack = seat['stack']
+                    break
+        
         for va in valid_actions:
             if va['action'] == action:
                 if action in ['call', 'fold']:
@@ -126,8 +138,32 @@ class AIPokerPlayer(BasePokerPlayer):
                     
                     if isinstance(amount, (int, float)):
                         amount = max(min_amount, min(amount, max_amount))
+                        
+                        # 检测all-in：在PyPokerEngine中，raise的amount是总投入金额（不是增量）
+                        # 当raise amount达到或接近max_amount（通常是stack+已投入金额）时，就是all-in
+                        # 如果max_amount有限且amount >= max_amount * 0.95（允许一点误差），认为是all-in
+                        if max_amount != float('inf'):
+                            # 如果加注到最大可加注金额，就是all-in
+                            if amount >= max_amount or (my_stack > 0 and amount >= my_stack + min_amount):
+                                self._is_all_in = True
+                                # 如果AI想全下，设置为最大可加注金额
+                                if amount >= max_amount * 0.9:  # 如果接近全下
+                                    amount = max_amount
+                            else:
+                                self._is_all_in = False
+                        elif my_stack > 0:
+                            # 如果没有max限制但有stack信息，检查是否投入所有筹码
+                            # 注意：需要知道已投入的金额，这里简化处理
+                            # 如果amount很大（比如超过stack的80%），可能是all-in意图
+                            if amount >= my_stack:
+                                self._is_all_in = True
+                            else:
+                                self._is_all_in = False
+                        else:
+                            self._is_all_in = False
                     else:
                         amount = min_amount
+                        self._is_all_in = False
                 break
         
         return action, amount
@@ -149,6 +185,13 @@ class AIPokerPlayer(BasePokerPlayer):
         hand_strength = GameStateAnalyzer.get_hand_strength_description(
             hole_card, round_state.get('community_card', [])
         )
+        
+        # 获取我的筹码信息
+        my_stack = 0
+        for seat in round_state.get('seats', []):
+            if seat['uuid'] == self.player_uuid:
+                my_stack = seat['stack']
+                break
         
         # 获取call行动信息
         call_action = None
@@ -216,7 +259,11 @@ class AIPokerPlayer(BasePokerPlayer):
                 if isinstance(amount_info, dict):
                     min_raise = amount_info.get('min', 0)
                     max_raise = amount_info.get('max', 0)
-                    print(f"   🚀 加注 {min_raise}-{max_raise}")
+                    # 检查是否可以达到all-in
+                    if game_info['my_stack'] <= max_raise:
+                        print(f"   💥 全下 (ALL-IN) {game_info['my_stack']}")
+                    else:
+                        print(f"   🚀 加注 {min_raise}-{max_raise}")
                 else:
                     print(f"   🚀 加注 {amount_info}")
         
@@ -252,7 +299,7 @@ class AIPokerPlayer(BasePokerPlayer):
         
         self.game_history.append(record)
     
-    def _print_final_decision(self, action: str, amount: int, original_decision: Dict):
+    def _print_final_decision(self, action: str, amount: int, original_decision: Dict, my_stack: int = 0):
         """打印最终决策信息"""
         print(f"\n🎯 [{self.name}] 最终决策:")
         print(f"{'─'*50}")
@@ -263,7 +310,14 @@ class AIPokerPlayer(BasePokerPlayer):
         elif action == 'call':
             print(f"   ✅ 决策: 跟注 {amount}")
         elif action == 'raise':
-            print(f"   🚀 决策: 加注至 {amount}")
+            # 检查是否是all-in：如果加注金额等于或超过全部筹码，就是all-in
+            if self._is_all_in or (my_stack > 0 and amount >= my_stack):
+                print(f"   💥💥💥 决策: 全下 (ALL-IN) {amount} 💥💥💥")
+                print(f"   {'🔥' * 30}")
+                print(f"   ⚡ {self.name} 全下所有筹码！")
+                print(f"   {'🔥' * 30}")
+            else:
+                print(f"   🚀 决策: 加注至 {amount}")
         else:
             print(f"   ❓ 决策: {action} {amount}")
         
@@ -339,19 +393,43 @@ class AIPokerPlayer(BasePokerPlayer):
                     break
             
             action_type = action['action']
-            action_emoji = {
-                'fold': '❌',
-                'call': '✅', 
-                'raise': '🚀',
-                'bet': '💰',
-                'check': '⏸️'
-            }.get(action_type, '❓')
+            action_amount = action.get('amount', 0)
             
-            action_desc = f"{action_type}"
-            if 'amount' in action and action['amount'] > 0:
-                action_desc += f" {action['amount']}"
+            # 检测all-in：检查该玩家的筹码是否已全部投入
+            player_stack = 0
+            for seat in round_state.get('seats', []):
+                if seat['uuid'] == action['player_uuid']:
+                    player_stack = seat['stack']
+                    break
             
-            print(f"   {action_emoji} {player_name}: {action_desc}")
+            is_all_in = False
+            if action_type in ['raise', 'call'] and action_amount > 0:
+                # 检测all-in：如果玩家剩余筹码为0，说明已经all-in
+                # 或者如果raise/call的金额很大，可能是all-in
+                # 注意：PyPokerEngine中，如果玩家all-in，amount会是总投入金额
+                # 最可靠的判断是检查玩家剩余stack是否为0
+                if player_stack == 0:
+                    is_all_in = True
+                # 另外，如果raise金额非常大（可能接近或等于全部筹码），也可能是all-in
+                # 但这个判断不够准确，因为需要知道已投入金额
+            
+            if is_all_in:
+                action_emoji = '💥'
+                action_desc = f"全下 (ALL-IN) {action_amount}"
+                print(f"   {action_emoji}{action_emoji}{action_emoji} {player_name}: {action_desc} {action_emoji}{action_emoji}{action_emoji}")
+            else:
+                action_emoji = {
+                    'fold': '❌',
+                    'call': '✅', 
+                    'raise': '🚀',
+                    'bet': '💰',
+                    'check': '⏸️'
+                }.get(action_type, '❓')
+                
+                action_desc = f"{action_type}"
+                if action_amount > 0:
+                    action_desc += f" {action_amount}"
+                print(f"   {action_emoji} {player_name}: {action_desc}")
     
     def receive_round_result_message(self, winners: List, hand_info: List, round_state: Dict):
         """接收轮次结果消息"""

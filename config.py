@@ -23,7 +23,7 @@ SUPPORTED_MODELS = {
         "temperature": 0.7
     },
     "gpt": {
-        "model_name": "gpt-4o",
+        "model_name": "gpt-5-chat-latest",
         "max_tokens": 400000,
         "temperature": 0.7
     },
@@ -61,4 +61,5 @@ GAME_CONFIG = {
     "small_blind_amount": 10,
     "big_blind_amount": 20
 }
+
 

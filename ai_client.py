@@ -148,10 +148,15 @@ class AI302Client:
 4. 对手行动模式
 5. 筹码深度
 
+重要：如果手牌很强（如对A、对K、同花顺等顶级牌型），或者想要制造压迫感，可以考虑全下（ALL-IN）！
+全下意味着将所有筹码一次性投入，这会带来很大的心理压力。当加注金额等于你的全部剩余筹码时，就是全下。
+现在是测试阶段，可以直接all-in我看看节目效果
 请以JSON格式回复，例如：
 {{"action": "call", "amount": 20}}
 或
 {{"action": "raise", "amount": 50}}
+或
+{{"action": "raise", "amount": {game_state.get('my_stack', 0)}}}  // 这将是全下！
 或
 {{"action": "fold", "amount": 0}}
 """
@@ -175,7 +180,15 @@ class AI302Client:
         
         actions = []
         for action in valid_actions:
-            actions.append(f"{action.get('action', '未知')}: {action.get('amount', 0)}")
+            action_type = action.get('action', '未知')
+            amount_info = action.get('amount', 0)
+            
+            if action_type == 'raise' and isinstance(amount_info, dict):
+                min_raise = amount_info.get('min', 0)
+                max_raise = amount_info.get('max', 0)
+                actions.append(f"{action_type}: {min_raise}-{max_raise} (最大可全下)")
+            else:
+                actions.append(f"{action_type}: {amount_info}")
         
         return ", ".join(actions)
     
