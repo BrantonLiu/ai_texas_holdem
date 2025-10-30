@@ -190,6 +190,7 @@ $RECYCLE.BIN/
 # Logs
 *.log
 logs/
+log/
 
 # Game data and saves
 game_logs/

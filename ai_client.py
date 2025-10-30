@@ -10,18 +10,20 @@ from config import API_BASE_URL, API_KEY, SUPPORTED_MODELS
 class AI302Client:
     """302.AI API客户端"""
     
-    def __init__(self, model_type: str = "claude"):
+    def __init__(self, model_type: str = "claude", logger=None):
         """
         初始化客户端
         
         Args:
             model_type: 模型类型，支持 claude, gemini, gpt, grok, deepseek, qwen, glm, kimi
+            logger: 可选的日志工具，用于记录日志
         """
         if model_type not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型类型: {model_type}")
         
         self.model_type = model_type
         self.model_config = SUPPORTED_MODELS[model_type]
+        self.logger = logger
         self.headers = {
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
@@ -57,11 +59,17 @@ class AI302Client:
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
             else:
-                print(f"API请求失败: {response.status_code} - {response.text}")
+                error_msg = f"API请求失败: {response.status_code} - {response.text}"
+                print(error_msg)
+                if self.logger:
+                    self.logger.log_line(error_msg, print_to_console=False)
                 return None
                 
         except Exception as e:
-            print(f"API调用异常: {str(e)}")
+            error_msg = f"API调用异常: {str(e)}"
+            print(error_msg)
+            if self.logger:
+                self.logger.log_line(error_msg, print_to_console=False)
             return None
     
     def get_poker_decision(self, game_state: Dict[str, Any], debug: bool = False) -> Optional[Dict[str, Any]]:
@@ -118,7 +126,10 @@ class AI302Client:
                 return parsed_decision
         
         if debug:
-            print(f"❌ [{self.model_type.upper()}] API调用失败，无响应")
+            error_msg = f"❌ [{self.model_type.upper()}] API调用失败，无响应"
+            print(error_msg)
+            if self.logger:
+                self.logger.log_line(error_msg, print_to_console=False)
         
         return None
     
@@ -212,58 +223,77 @@ class AI302Client:
     
     def _print_debug_info(self, game_state: Dict[str, Any], messages: list, prompt: str):
         """打印调试信息"""
-        print(f"\n{'='*80}")
-        print(f"🤖 [{self.model_type.upper()}] AI决策调试信息")
-        print(f"{'='*80}")
-        
-        # 打印游戏状态摘要
-        print(f"🎮 游戏状态摘要:")
-        print(f"   手牌: {game_state.get('hole_cards', '未知')}")
-        print(f"   公共牌: {game_state.get('community_cards', '无')}")
-        print(f"   轮次: {game_state.get('street', '未知')}")
-        print(f"   筹码: {game_state.get('my_stack', 0)}")
-        print(f"   底池: {game_state.get('pot_size', 0)}")
-        print(f"   跟注: {game_state.get('call_amount', 0)}")
-        
-        # 打印模型配置
-        print(f"\n🔧 模型配置:")
-        print(f"   模型名称: {self.model_config['model_name']}")
-        print(f"   最大tokens: {self.model_config['max_tokens']}")
-        print(f"   温度: {self.model_config['temperature']}")
-        
-        # 打印完整的prompt
-        print(f"\n📝 发送给模型的完整Prompt:")
-        print(f"{'─'*60}")
-        print(f"System: {messages[0]['content']}")
-        print(f"{'─'*60}")
-        print(f"User Prompt:")
-        print(prompt)
-        print(f"{'─'*60}")
+        lines = [
+            f"\n{'='*80}",
+            f"🤖 [{self.model_type.upper()}] AI决策调试信息",
+            f"{'='*80}",
+            f"🎮 游戏状态摘要:",
+            f"   手牌: {game_state.get('hole_cards', '未知')}",
+            f"   公共牌: {game_state.get('community_cards', '无')}",
+            f"   轮次: {game_state.get('street', '未知')}",
+            f"   筹码: {game_state.get('my_stack', 0)}",
+            f"   底池: {game_state.get('pot_size', 0)}",
+            f"   跟注: {game_state.get('call_amount', 0)}",
+            f"\n🔧 模型配置:",
+            f"   模型名称: {self.model_config['model_name']}",
+            f"   最大tokens: {self.model_config['max_tokens']}",
+            f"   温度: {self.model_config['temperature']}",
+            f"\n📝 发送给模型的完整Prompt:",
+            f"{'─'*60}",
+            f"System: {messages[0]['content']}",
+            f"{'─'*60}",
+            f"User Prompt:",
+            prompt,
+            f"{'─'*60}"
+        ]
+        for line in lines:
+            print(line)
+            if self.logger:
+                self.logger.log_line(line, print_to_console=False)
     
     def _print_response_debug(self, response: str):
         """打印模型响应调试信息"""
-        print(f"\n💬 模型原始响应:")
-        print(f"{'─'*60}")
-        print(response)
-        print(f"{'─'*60}")
-        print(f"   响应长度: {len(response)} 字符")
+        lines = [
+            f"\n💬 模型原始响应:",
+            f"{'─'*60}",
+            response,
+            f"{'─'*60}",
+            f"   响应长度: {len(response)} 字符"
+        ]
         
         # 检查响应中是否包含JSON
         if '{' in response and '}' in response:
-            print(f"   ✅ 响应包含JSON格式")
+            lines.append(f"   ✅ 响应包含JSON格式")
         else:
-            print(f"   ⚠️  响应不包含明显的JSON格式")
+            lines.append(f"   ⚠️  响应不包含明显的JSON格式")
+        
+        for line in lines:
+            print(line)
+            if self.logger:
+                self.logger.log_line(line, print_to_console=False)
     
     def _print_decision_debug(self, decision: Dict[str, Any], parse_method: str):
         """打印决策调试信息"""
-        print(f"\n🎯 决策解析结果 ({parse_method}):")
-        print(f"{'─'*40}")
+        lines = [
+            f"\n🎯 决策解析结果 ({parse_method}):",
+            f"{'─'*40}"
+        ]
         if decision:
-            print(f"   行动: {decision.get('action', '未知')}")
-            print(f"   金额: {decision.get('amount', 0)}")
-            print(f"   ✅ 决策解析成功")
+            lines.extend([
+                f"   行动: {decision.get('action', '未知')}",
+                f"   金额: {decision.get('amount', 0)}",
+                f"   ✅ 决策解析成功"
+            ])
         else:
-            print(f"   ❌ 决策解析失败")
-        print(f"{'─'*40}")
-        print(f"🏁 [{self.model_type.upper()}] 决策流程完成")
-        print(f"{'='*80}\n")
+            lines.append(f"   ❌ 决策解析失败")
+        
+        lines.extend([
+            f"{'─'*40}",
+            f"🏁 [{self.model_type.upper()}] 决策流程完成",
+            f"{'='*80}\n"
+        ])
+        
+        for line in lines:
+            print(line)
+            if self.logger:
+                self.logger.log_line(line, print_to_console=False)
