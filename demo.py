@@ -32,39 +32,62 @@ def print_banner():
 
 def select_models():
     """选择参与对战的AI模型"""
-    print(f"\n{Fore.GREEN}请选择参与对战的AI模型 (输入数字，用空格分隔，至少2个):{Style.RESET_ALL}")
-    
     model_keys = list(SUPPORTED_MODELS.keys())
+    max_models = min(10, len(model_keys))  # 最多支持10个模型
+    
+    print(f"\n{Fore.GREEN}请选择参与对战的AI模型 (输入数字，用空格分隔，至少2个，最多{max_models}个):{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}提示: 输入 'all' 或 'a' 可选择所有模型 (共{len(model_keys)}个){Style.RESET_ALL}")
     
     while True:
         try:
-            user_input = input("选择模型 (例如: 1 2 3): ").strip()
+            user_input = input("选择模型 (例如: 1 2 3 或 all): ").strip().lower()
             if not user_input:
                 print(f"{Fore.RED}请至少选择2个模型{Style.RESET_ALL}")
                 continue
             
+            # 处理全选选项
+            if user_input in ['all', 'a']:
+                selected_models = model_keys[:max_models]
+                if len(model_keys) > max_models:
+                    print(f"{Fore.YELLOW}注意: 已选择前{max_models}个模型 (共{len(model_keys)}个可用){Style.RESET_ALL}")
+                else:
+                    print(f"{Fore.GREEN}已选择所有{len(selected_models)}个模型{Style.RESET_ALL}")
+                return selected_models
+            
+            # 处理数字选择
             indices = [int(x) - 1 for x in user_input.split()]
             
             if len(indices) < 2:
                 print(f"{Fore.RED}请至少选择2个模型{Style.RESET_ALL}")
                 continue
             
-            if len(indices) > 6:
-                print(f"{Fore.RED}最多支持6个模型同时对战{Style.RESET_ALL}")
+            if len(indices) > max_models:
+                print(f"{Fore.RED}最多支持{max_models}个模型同时对战{Style.RESET_ALL}")
                 continue
             
             selected_models = []
+            invalid_indices = []
             for idx in indices:
                 if 0 <= idx < len(model_keys):
-                    selected_models.append(model_keys[idx])
+                    if model_keys[idx] not in selected_models:  # 避免重复选择
+                        selected_models.append(model_keys[idx])
+                    else:
+                        print(f"{Fore.YELLOW}警告: 模型 {idx + 1} ({model_keys[idx]}) 已选择，已跳过{Style.RESET_ALL}")
                 else:
-                    print(f"{Fore.RED}无效的选择: {idx + 1}{Style.RESET_ALL}")
-                    break
-            else:
-                return selected_models
+                    invalid_indices.append(idx + 1)
+            
+            if invalid_indices:
+                print(f"{Fore.RED}无效的选择: {', '.join(map(str, invalid_indices))}{Style.RESET_ALL}")
+                continue
+            
+            if len(selected_models) < 2:
+                print(f"{Fore.RED}请至少选择2个不同的模型{Style.RESET_ALL}")
+                continue
+            
+            return selected_models
                 
         except ValueError:
-            print(f"{Fore.RED}请输入有效的数字{Style.RESET_ALL}")
+            print(f"{Fore.RED}请输入有效的数字，或输入 'all'/'a' 全选{Style.RESET_ALL}")
 
 
 def setup_game_config(selected_models):
@@ -278,4 +301,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
