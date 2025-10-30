@@ -1,0 +1,7 @@
+# 302.AI API配置
+# 请在302.ai平台获取您的API密钥并替换下面的值
+API_302_KEY=your_302_ai_api_key_here
+
+# 可选配置
+# API_BASE_URL=https://api.302.ai/v1
+
