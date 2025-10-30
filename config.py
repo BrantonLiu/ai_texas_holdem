@@ -34,7 +34,7 @@ SUPPORTED_MODELS = {
     },
     "deepseek": {
         "model_name": "deepseek-v3.1",
-        "max_tokens": 4096,
+        "max_tokens": 128000,
         "temperature": 0.7
     },
     "qwen": {

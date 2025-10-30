@@ -19,7 +19,7 @@
 | Gemini | Google | gemini-2.5-pro | 1,000,000 | 0.7 |
 | GPT | OpenAI | gpt-5-chat-latest | 400,000 | 0.7 |
 | Grok | xAI | grok-4-0709 | 256,000 | 0.7 |
-| DeepSeek | DeepSeek | deepseek-chat | 4,096 | 0.7 |
+| DeepSeek | DeepSeek | deepseek-chat | 128000 | 0.7 |
 | Qwen | Alibaba | qwen3-max-2025-09-23 | 258,048 | 0.7 |
 | GLM | Zhipu | glm-4.6 | 200,000 | 0.7 |
 | Kimi | Moonshot | kimi-k2-0905-preview | 256,000 | 0.7 |
@@ -157,7 +157,7 @@ ai_texas_holdem/
 
 ## 注意事项
 
-1. **API费用**: 使用大模型API会产生费用，请注意控制使用量
+1. **API费用**: 使用大模型API会产生费用，请注意控制使用量（按目前的config中的模型配置，跑10轮大约需要70分钟，消耗1.5PTC（大约是1.5美元））
 2. **网络连接**: 需要稳定的网络连接访问302.AI API
 3. **响应时间**: AI决策需要时间，游戏进程可能较慢
 4. **模型差异**: 不同模型的决策风格和能力可能存在差异
